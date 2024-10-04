@@ -6,32 +6,52 @@ receivers:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
-  awsxray:
-    endpoint: 0.0.0.0:2000
-    transport: udp
 
 processors:
-  batch/traces:
-    timeout: 1s
-    send_batch_size: 50
-  batch/metrics:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 50
+
+  batch/local-hour-granularity:
+    # TODO: change to 60m once verify working
     timeout: 60s
 
+  metricstransform:
+    transforms:
+      - include: ^.+\.counter
+        match_type: regexp
+        action: update
+        operations:
+          - action: aggregate_labels
+            label_set: [sum]
+            aggregation_type: sum
+      # compute the max out of all the gauge metrics
+      # within a batch
+      - include: ^(.+\.gauge)$$
+        match_type: regexp
+        action: update
+        new_name: $${1}.max
+        operations:
+          - action: aggregate_labels
+            label_set: [Data]
+            aggregation_type: max
+
 exporters:
-  awsxray:
-  awsemf:
+  file:
+    path: /logs/metrics/metrics.json
+    rotation:
+      max_megabytes: 1
+    format: json
+  debug:
+    # Ref:
+    # https://github.com/open-telemetry/opentelemetry-collector/blob/main/exporter/debugexporter/README.md#normal-verbosity
+    verbosity: normal
 
 service:
   pipelines:
-    traces:
-      receivers: [otlp,awsxray]
-      processors: [batch/traces]
-      exporters: [awsxray]
     metrics:
       receivers: [otlp]
-      processors: [batch/metrics]
-      exporters: [awsemf]
+      processors: [memory_limiter, batch/local-hour-granularity, metricstransform]
+      exporters: [debug, file]
 
   extensions: [health_check]

@@ -51,6 +51,7 @@ RUN make ${TARGETARCH}-build
 
 # move
 RUN mv /workspace/build/linux/$TARGETARCH/aoc /workspace/awscollector
+RUN mv /workspace/build/linux/$TARGETARCH/run-awscollector /workspace/run-awscollector
 
 ################################
 #	Copy Stage             #
@@ -66,6 +67,7 @@ ARG TARGETARCH
 # always assume binary is created
 COPY build/linux/$TARGETARCH/aoc /workspace/awscollector
 COPY build/linux/$TARGETARCH/healthcheck /workspace/healthcheck
+COPY build/linux/$TARGETARCH/run-awscollector /workspace/run-awscollector
 
 ################################
 #	Packing Stage          #
@@ -91,12 +93,16 @@ COPY --from=base /home/$USERNAME/ /home/$USERNAME
 COPY --from=package /workspace/awscollector /awscollector
 COPY --from=package /workspace/config/ /etc/
 COPY --from=package /workspace/healthcheck /healthcheck
+COPY --from=package /workspace/run-awscollector /run-awscollector
 
 ENV RUN_IN_CONTAINER="True"
 
-USER $USERNAME
+# we would like to run as root so that:
+# * /run-awscollector can write to /logs/adot/adot.log
+# * /awscollector can export metrics to /logs/metrics/metrics.json
+# USER $USERNAME
+
 # aws-sdk-go needs $HOME to look up shared credentials
 ENV HOME=/home/$USERNAME
-ENTRYPOINT ["/awscollector"]
-CMD ["--config=/etc/otel-config.yaml"]
+ENTRYPOINT ["/run-awscollector"]
 EXPOSE 4317 55681 2000
