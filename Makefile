@@ -95,6 +95,12 @@ amd64-build: install-tools golint
 .PHONY: arm64-build
 arm64-build: install-tools golint
 	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o ./build/linux/arm64/aoc ./cmd/awscollector
+	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o ./build/linux/arm64/run-awscollector ./cmd/run-awscollector
+
+.PHONY: armhf-build
+armhf-build: install-tools golint
+	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) $(LDFLAGS) -o ./build/linux/arm/aoc ./cmd/awscollector
+	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) $(LDFLAGS) -o ./build/linux/arm/run-awscollector ./cmd/run-awscollector
 
 .PHONY: windows-build
 windows-build: install-tools golint
@@ -132,6 +138,14 @@ amd64-build-healthcheck: install-tools golint
 .PHONY: docker-build-arm
 docker-build-arm: arm64-build arm64-build-healthcheck
 	docker buildx build --platform linux/arm64 --build-arg BUILDMODE=copy --load -t $(DOCKER_NAMESPACE)/$(COMPONENT):$(VERSION) -f ./cmd/$(COMPONENT)/Dockerfile .
+
+.PHONY: docker-build-armhf
+docker-build-armhf: armhf-build armhf-build-healthcheck
+	docker buildx build --platform linux/arm/v7 --build-arg BUILDMODE=copy --load -t dwelocom/$(COMPONENT):$(GIT_SHA) -f ./cmd/$(COMPONENT)/Dockerfile .
+
+.PHONY: armhf-build-healthcheck
+armhf-build-healthcheck: install-tools golint
+	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) $(LDFLAGS) -o ./build/linux/arm/healthcheck ./cmd/healthcheck
 
 .PHONY: arm64-build-healthcheck
 arm64-build-healthcheck: install-tools golint
