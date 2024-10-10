@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -e
+
+if [ -z "${DISABLE_COMPOSE_UPDATES}" ]; then
+    echo "Updating docker compose"
+else
+    echo "Compose updates are disabled. Unset DISABLE_COMPOSE_UPDATES to re-enable."
+    exit 0
+fi
+
+
+# If no COMPOSE_REPO specified, fallback to defaults.
+if [ -z "${COMPOSE_REPO}" ]; then
+  case "$TARGET_ARCH" in
+    armhf) COMPOSE_REPO=balena-unify-dart-runtime ;;
+    *) exit 1 ;;
+  esac
+fi
+
+GIT_SHA="${GIT_SHA:-$(git rev-parse "$GITHUB_SHA")}"
+
+GITHUB_ORG_NAME="${GITHUB_ORG_NAME:-LevelHome}"
+DOCKER_IMAGE_LOCATION="${dwelocom}"
+DOCKER_IMAGE_NAME="awscollector"
+NEW_TAG="${GIT_SHA}"
+BRANCH="${TRAVIS_BRANCH:-$(git rev-parse --abbrev-ref "$GITHUB_REF")}"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT SIGINT
+
+cd "$tmpdir"
+
+echo "git url: https://github.com/${GITHUB_ORG_NAME}/${COMPOSE_REPO}.git"
+git clone "https://${GITHUB_ORG_NAME}:${AWS_OTEL_COLLECTOR_IT_AUTOMATION_PAT}@github.com/${GITHUB_ORG_NAME}/${COMPOSE_REPO}.git" repo
+# git remote set-url origin "https://github.com/${GITHUB_ORG_NAME}/${COMPOSE_REPO}.git"
+cd repo
+git checkout "${BRANCH}" || git checkout -b "${BRANCH}"
+docker_repo="$DOCKER_IMAGE_LOCATION/$DOCKER_IMAGE_NAME"
+echo "docker_repo: ${docker_repo}"
+sed -i.bak -E "s%${docker_repo}:.+$%${docker_repo}:${NEW_TAG}%g" docker-compose.yml
+git add docker-compose.yml
+git commit -m "Update $DOCKER_IMAGE_NAME to ${NEW_TAG}"
+git push origin "${BRANCH}:${BRANCH}"
