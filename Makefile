@@ -141,7 +141,7 @@ docker-build-arm: arm64-build arm64-build-healthcheck
 
 .PHONY: docker-build-armhf
 docker-build-armhf: armhf-build armhf-build-healthcheck
-	docker buildx build --platform linux/arm/v7 --build-arg BUILDMODE=copy --load -t dwelocom/$(COMPONENT):$(GIT_SHA) -f ./cmd/$(COMPONENT)/Dockerfile .
+	docker buildx build --platform linux/arm/v7 --build-arg BUILDMODE=copy --load --push -t dwelocom/$(COMPONENT):$(GIT_SHA) -f ./cmd/$(COMPONENT)/Dockerfile .
 
 .PHONY: armhf-build-healthcheck
 armhf-build-healthcheck: install-tools golint
